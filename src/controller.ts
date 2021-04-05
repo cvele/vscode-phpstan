@@ -43,6 +43,7 @@ interface PhpStanArgs {
   memoryLimit?: string;
   noProgress?: boolean;
   path?: string;
+  binPath?: string;
 }
 
 export class PhpStanController {
@@ -95,7 +96,6 @@ export class PhpStanController {
     this._diagnosticCollection = languages.createDiagnosticCollection(
       "phpstan_error"
     );
-    this._initPhpstan();
     this._initConfig();
     this.shouldAnalyseFile();
   }
@@ -106,10 +106,6 @@ export class PhpStanController {
     this._commandForFile.dispose();
     this._statusBarItem.dispose();
     this._disposable.dispose();
-  }
-
-  private _initPhpstan() {
-    this._phpstan = process.platform === "win32" ? "phpstan.bat" : "phpstan";
   }
 
   private _initConfig() {
@@ -128,6 +124,7 @@ export class PhpStanController {
       "256M"
     );
     this._config.noProgress = workspace_config.get("phpstan.noProgress", true);
+    this._config.binPath = workspace_config.get("phpstan.binPath", "phpstan");
   }
 
   private _shouldAnalyseFile(document?: TextDocument) {
@@ -250,7 +247,7 @@ export class PhpStanController {
     }
 
     let phpstan = child_process.spawn(
-      this.makeCommandPath(cwd),
+      this.makeCommandPath(cwd, args.binPath),
       this.makeCommandArgs(args),
       this.setCommandOptions(cwd)
     );
@@ -286,13 +283,8 @@ export class PhpStanController {
     });
   }
 
-  protected makeCommandPath(cwd: string) {
-    let binDir = "vendor/bin";
-    const basename = process.platform === "win32" ? "phpstan.bat" : "phpstan";
-    try {
-      binDir = child_process.execSync("composer config bin-dir", {cwd}).toString().trim();
-    } catch (err) {}
-    const binary = path.resolve(cwd, binDir, basename);
+  protected makeCommandPath(cwd: string, binary?: string) {
+    const binary = binary ? "phpstan" : binary ;
     try {
       fs.accessSync(binary, fs.constants.X_OK);
       return binary;
